@@ -14,6 +14,7 @@ from mixed_naive_bayes import MixedNB
 
 import numpy as np
 
+
 class Annotation(object):
     """Container class for storing annotations of an example.
 
@@ -40,12 +41,15 @@ class Annotation(object):
         self.b_offset = None
         self.pro_offest = None
 
+
 class Features:
     def __init__(self):
         self.dist_a_pro = None
         self.dist_b_pro = None
         self.pro_a = None
         self.pro_b = None
+        self.count_a = None
+        self.count_b = None
         self.name_a_coref = None
         self.name_b_coref = None
         self.label = None
@@ -102,12 +106,12 @@ def read_annotations(filename, is_gold):
             annotations[example_id].pro = row["Pronoun"]
             annotations[example_id].text = row["Text"]
 
-
             if is_gold:
                 gender = PRONOUNS.get(row["Pronoun"].lower(), Gender.UNKNOWN)
                 assert gender != Gender.UNKNOWN, row
                 annotations[example_id].gender = gender
     return annotations, feats
+
 
 def preprocess(sents):
     sentences = nltk.sent_tokenize(sents)
@@ -115,10 +119,12 @@ def preprocess(sents):
     # sentences = [nltk.pos_tag(sent) for sent in sentences]
     return sentences
 
+
 def order(a: int, b: int):
     if a <= b:
-        return a,b
-    return b,a
+        return a, b
+    return b, a
+
 
 def in_the_same_sent(sent, pro, A, B):
     pro_num = 0
@@ -126,22 +132,30 @@ def in_the_same_sent(sent, pro, A, B):
     b_num = 0
     sentences = preprocess(sent)
     for idx, sent in enumerate(sentences):
-        if pro.lower() in (''.join(sent)).lower():
+        if pro.lower() in ("".join(sent)).lower():
             pro_num = idx
-        if A in ''.join(sent):
+        if A in "".join(sent):
             a_num = idx
-        if B in ''.join(sent):
+        if B in "".join(sent):
             b_num = idx
-        if pro_num==a_num:
-            x=0
-        else: x=1
-        if pro_num==b_num:
-            y=0
-        else: y=1
+        if pro_num == a_num:
+            x = 0
+        else:
+            x = 1
+        if pro_num == b_num:
+            y = 0
+        else:
+            y = 1
     return (x, y)
+
+
+def count_occ(text, word):
+    return text.count(word)
+
 
 def retrieve_data(file_name):
     annots, feats = read_annotations(file_name, True)
+
     def tuple_to_int(bool1, bool2):
         if (bool1, bool2) == (False, False):
             return 0
@@ -155,35 +169,63 @@ def retrieve_data(file_name):
     for key in annots:
         annot = annots[key]
         sentence = annot.text
-        ord1, ord2 = order(annot.a_offset,annot.pro_offset)
+        ord1, ord2 = order(annot.a_offset, annot.pro_offset)
         feats[key].dist_a_pro = len(sentence[ord1:ord2].split())
-        ord1, ord2 = order(annot.b_offset,annot.pro_offset)
+        ord1, ord2 = order(annot.b_offset, annot.pro_offset)
         feats[key].dist_b_pro = len(sentence[ord1:ord2].split())
         feats[key].label = tuple_to_int(annot.name_a_coref, annot.name_b_coref)
         feats[key].pro_a = in_the_same_sent(annot.text, annot.pro, annot.A, annot.B)[0]
         feats[key].pro_b = in_the_same_sent(annot.text, annot.pro, annot.A, annot.B)[1]
-        
+        feats[key].count_a = count_occ(annot.text, annot.A)
+        feats[key].count_b = count_occ(annot.text, annot.B)
 
-    with open('test.tsv', 'wt') as out_file:
-        tsv_writer = csv.writer(out_file, delimiter='\t')
-        tsv_writer.writerow(['ID', 'Dist_a_pro', 'Dist_b_pro', 'A_coref', 'B_coref', 'Same_with_A','Same_with_B','Label'])
+    with open("test.tsv", "wt") as out_file:
+        tsv_writer = csv.writer(out_file, delimiter="\t")
+        tsv_writer.writerow(
+            [
+                "ID",
+                "Dist_a_pro",
+                "Dist_b_pro",
+                "A_coref",
+                "B_coref",
+                "Count_A",
+                "Count_B",
+                "Same_with_A",
+                "Same_with_B",
+                "Label",
+            ]
+        )
 
         for key in feats:
-            tsv_writer.writerow([key, feats[key].dist_a_pro, feats[key].dist_b_pro, feats[key].name_a_coref, feats[key].name_b_coref,feats[key].pro_a,feats[key].pro_b, feats[key].label])
+            tsv_writer.writerow(
+                [
+                    key,
+                    feats[key].dist_a_pro,
+                    feats[key].dist_b_pro,
+                    feats[key].name_a_coref,
+                    feats[key].name_b_coref,
+                    feats[key].count_a,
+                    feats[key].count_b,
+                    feats[key].pro_a,
+                    feats[key].pro_b,
+                    feats[key].label,
+                ]
+            )
 
-    file = open('test.tsv', 'r')
-    data = csv.reader(file, delimiter='\t')
+    file = open("test.tsv", "r")
+    data = csv.reader(file, delimiter="\t")
     table = [row for row in data]
     nparr = np.asarray(table[1:])
 
-    nparr = nparr[:,[1,2,5,6,7]]
+    nparr = nparr[:, [1, 2, 5, 6, 7,8,9]]
     nparr = nparr.astype(int)
-    X_train = nparr[:,[0,1,2,3]]
-    Y_train = nparr[:,[4]]
+    X_train = nparr[:, [0, 1, 2, 3,4,5]]
+    Y_train = nparr[:, [6]]
     return X_train, Y_train
 
-X_train, Y_train = retrieve_data('gap-development.tsv')
-X_test, Y_test = retrieve_data('gap-test.tsv')
+
+X_train, Y_train = retrieve_data("gap-development.tsv")
+X_test, Y_test = retrieve_data("gap-test.tsv")
 print(X_test[:5])
 print(len(X_test))
 gnb = GaussianNB()
@@ -203,17 +245,14 @@ print(y_pred)
 
 print(y_pred[50])
 
-num_to_bool = {
-    0: (False, False),
-    1: (True, False),
-    2: (False, True),
-    3: (True, True)
-}
-    
+num_to_bool = {0: (False, False), 1: (True, False), 2: (False, True), 3: (True, True)}
+
 print(len(y_pred))
-with open('output.tsv', 'wt') as out_file:
-        tsv_writer = csv.writer(out_file, delimiter='\t')
-        tsv_writer.writerow(['ID', 'A_coref', 'B_coref'])
-        for idx, elem in enumerate(y_pred):
-            id = "test-" + str(idx+1)
-            tsv_writer.writerow([id, num_to_bool[y_pred[idx]][0], num_to_bool[y_pred[idx]][1]])
+with open("output.tsv", "wt") as out_file:
+    tsv_writer = csv.writer(out_file, delimiter="\t")
+    tsv_writer.writerow(["ID", "A_coref", "B_coref"])
+    for idx, elem in enumerate(y_pred):
+        id = "test-" + str(idx + 1)
+        tsv_writer.writerow(
+            [id, num_to_bool[y_pred[idx]][0], num_to_bool[y_pred[idx]][1]]
+        )
