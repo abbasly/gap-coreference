@@ -10,6 +10,8 @@ from constants import GOLD_FIELDNAMES, PRONOUNS, SYSTEM_FIELDNAMES, Gender
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import CategoricalNB
+from mixed_naive_bayes import MixedNB
+
 import numpy as np
 
 class Annotation(object):
@@ -124,11 +126,11 @@ def in_the_same_sent(sent, pro, A, B):
     b_num = 0
     sentences = preprocess(sent)
     for idx, sent in enumerate(sentences):
-        if pro.lower() in (' '.join(sent)).lower():
+        if pro.lower() in (''.join(sent)).lower():
             pro_num = idx
-        if A in ' '.join(sent):
+        if A in ''.join(sent):
             a_num = idx
-        if B in ' '.join(sent):
+        if B in ''.join(sent):
             b_num = idx
         if pro_num==a_num:
             x=0
@@ -185,7 +187,16 @@ X_test, Y_test = retrieve_data('gap-test.tsv')
 print(X_test[:5])
 print(len(X_test))
 gnb = GaussianNB()
+
+# clf = CategoricalNB()
+# clf.fit(X_train, Y_train)
+
 # clf = LogisticRegression(random_state=0).fit(X_train, Y_train)
+
+# clf = MixedNB(categorical_features=[2,3])
+# clf.fit(X_train,np.ravel(Y_train))
+# y_pred = clf.predict(X_test)
+
 y_pred = gnb.fit(X_train, np.ravel(Y_train)).predict(X_test)
 # y_pred = clf.predict(X_test)
 print(y_pred)
